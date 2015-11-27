@@ -14,22 +14,22 @@ var  SDXF_TYPE_UTF8       = 6; // 6 -- UTF-8
 var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
 
 
- function SDXFReader() {
+ function Reader() {
 	 this.buff = new Buffer(0);
 	 this.objects = [];
  }
  
- SDXFReader.prototype.sync = function() {
+ Reader.prototype.sync = function() {
 	 this.buff = new Buffer(0);
  }
  
- SDXFReader.prototype.flush = function() {
+ Reader.prototype.flush = function() {
 	 this.buff = new Buffer(0);
 	 this.objects = [];
  }
  
  
- SDXFReader.prototype.append = function(data) {
+ Reader.prototype.append = function(data) {
 	 this.buff = Buffer.concat([this.buff,data]);
 	 var offset = 0;
 	while (this.buff.length >= 6) {
@@ -95,6 +95,13 @@ function parseSDXF(buff) {
 		console.log(e);
 	}
   	return res;  	
-} 
+}
+
+function Writer() {
+	
+}
+
+
+ 
 module.exports.parseSDXF = parseSDXF;
-module.exports.SDXF = SDXFReader;
+module.exports.Reader = Reader;

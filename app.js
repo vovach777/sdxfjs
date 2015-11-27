@@ -1,11 +1,11 @@
 var fs = require('fs');
-var parseSDXF = require('./sdxf').parseSDXF;
+var SDXF = require('./sdxf');
 
 var sample1 = fs.readFileSync('sample3.sdxf');
 var opt = {};
-var res = parseSDXF(sample1);
+var res = new SDXF.Reader();
+    res.append( sample1 );
+	
 
 //console.log(JSON.stringify( res, null,4 ));
-console.dir(res);
-console.dir(opt)
-console.log(sample1.length);
+console.dir(res.objects);
