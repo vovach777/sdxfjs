@@ -42,7 +42,7 @@ var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
 		   break;
 		
 		if (type === SDXF_TYPE_STRUCTURE) {
-			 objects.push(
+			 this.objects.push(
 				 parseSDXF(this.buff.slice(0,6+length))
 			 );  
 		}
