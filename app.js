@@ -4,24 +4,22 @@ var SDXF = require('./sdxf');
 var sample1 = fs.readFileSync('sample4.sdxf');
 var opt = {};
 var res = new SDXF.Reader();
-    res.append( sample1 ).append( sample1 );
+    res.append( sample1 );
 	
 
 var wrt = new SDXF.Writer();
-wrt.write(res.objects.shift());
+wrt.write(res.objects[0]);
 wrt.end();
 
 var rd = new SDXF.Reader();
 
 wrt.on('data', function(chunk){
     rd.append( chunk );
-   //console.log(chunk); 
 });
 
 wrt.on('end', function() {
- //  console.dir(rd.objects);
- console.log(JSON.stringify( res, null,4 ));    
+   if (JSON.stringify(rd.objects, null,4)===JSON.stringify(res.objects, null,4))
+      console.log('passed');    
+    else
+      console.log('fail');
 });
-
-
-//console.log(sample1.length);
