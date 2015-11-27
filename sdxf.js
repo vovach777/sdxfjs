@@ -14,54 +14,87 @@ var  SDXF_TYPE_UTF8       = 6; // 6 -- UTF-8
 var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
 
 
- function parseSDXF(buff, options) {
-	
-	var opt = typeof options === 'object' ? options : {offset : 0, res : {}};
-	if (!opt.offset)
-	   opt.offset = 0;
-	var res = opt.res || {};	
-try{
-		 
- while (1) {
-	if (!Buffer.isBuffer(buff) || (buff.length < 2+1+3))
-	   return res;
-  	var chunkID =  buff.readUInt16LE(0+opt.offset);
-	var flag = buff.readUInt8(2+opt.offset);
-	var type = (flag & 0xE0) >> 5; 	
-	var length = buff.readUInt(3+opt.offset,3);
-	var value = content;
-	
-		var content = (flag & SDXF_FLAG_SHORTCHUNK) ? null : buff.slice(6+opt.offset,6+opt.offset+length);
+ function SDXFReader() {
+	 this.buff = new Buffer(0);
+	 this.objects = [];
+ }
+ 
+ SDXFReader.prototype.sync = function() {
+	 this.buff = new Buffer(0);
+ }
+ 
+ SDXFReader.prototype.flush = function() {
+	 this.buff = new Buffer(0);
+	 this.objects = [];
+ }
+ 
+ 
+ SDXFReader.prototype.append = function(data) {
+	 this.buff = Buffer.concat([this.buff,data]);
+	 var offset = 0;
+	while (this.buff.length >= 6) {
+	   	   
+		//var chunkID =  this.buff.readUInt16LE(0);
+		var flag =    this.buff.readUInt8(2);
+		var type = (flag & 0xE0) >> 5; 	
+		var length = (flag & SDXF_FLAG_SHORTCHUNK) ? 0  : this.buff.readUIntLE(3,3);
+		if (this.buff.length < length+6)
+		   break;
 		
-		if ((content) && (content.length !== length))
-				return res;						    
-		
-		switch (type) {
-		case SDXF_TYPE_STRUCTURE:
-				value = content ? parseSDXF( content ) : {};
-				break;
-		case SDXF_TYPE_UTF8:
-				value = content ? content.toString() : ''; 
-				break;
-		case SDXF_TYPE_FLOAT:
-				value = content ? content.readDoubleLE(0) : NaN;
-				break;
-		case SDXF_TYPE_NUMERIC:					
-				     value = (content) ? content.readIntLE(0, content.length) : length;  
-				break;
-		case SDXF_TYPE_BIT_STRING:
-				value = content;			  
-				break;
-		}	
-	res[chunkID] = value;
-	opt.offset += 6;
-	if (content)
-	   opt.offset += content.length;
-  }
-}
-catch(e) {
-  console.log(e);
-}
-  return res;  	
+		if (type === SDXF_TYPE_STRUCTURE) {
+			 objects.push(
+				 parseSDXF(this.buff.slice(0,6+length))
+			 );  
+		}
+	    this.buff=this.buff.slice(6+length);		 	
+	}
+	return this;	 
+ };
+ 
+function parseSDXF(buff) {	
+	var res = {};
+	var offset = 0;	
+	try{		 
+		while (buff.length-offset >= 6)  {
+			var chunkID =  buff.readUInt16LE(offset);
+			offset +=2;
+			var flag = buff.readUInt8(offset);
+			offset +=1;
+			var type = (flag & 0xE0) >> 5; 	
+			var length = buff.readUIntLE(offset,3);
+			offset +=3;
+			var content = null, value;
+			if ((flag & SDXF_FLAG_SHORTCHUNK)===0) {
+			   content =  buff.slice(offset,offset+length);
+			   if (content.length !== length)
+						return res;
+			   offset += length;
+			}
+			value = content;														   				
+			switch (type) {
+				case SDXF_TYPE_STRUCTURE:
+						value = content ? parseSDXF( content ) : {};
+						break;
+				case SDXF_TYPE_UTF8:
+						value = content ? content.toString() : ''; 
+						break;
+				case SDXF_TYPE_FLOAT:
+						value = content ? content.readDoubleLE(0) : NaN;
+						break;
+				case SDXF_TYPE_NUMERIC:					
+							value = (content) ? content.readIntLE(0, content.length) : length;  
+						break;
+				case SDXF_TYPE_BIT_STRING:
+						value = content;			  
+						break;
+			}	
+			res[chunkID] = value;
+		}		
+	}
+	catch(e) {
+		console.log(e);
+	}
+  	return res;  	
 } 
 module.exports.parseSDXF = parseSDXF;
+module.exports.SDXF = SDXFReader;
