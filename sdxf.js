@@ -97,11 +97,139 @@ function parseSDXF(buff) {
   	return res;  	
 }
 
+var Transform = require('stream').Transform;
+require("util").inherits(Writer, Transform);
+
 function Writer() {
-	
+	Transform.call(this,{ objectMode: true, decodeStrings: false });
 }
 
+Writer.prototype._transform = function (chunk, encoding, callback) {
+	//console.dir(chunk);
+	var data = new Buffer( getBufferFor(chunk) );
+	if (data.length > 0) {
+		objectToSDXF(chunk, data);
+		callback(null,data);	 
+		// this.push(data);
+		// if (callback)
+	}
+}
 
+function getBufferFor(obj) {
+	var res=0;
+	Object.keys(obj).forEach(f);
+    function f(key) {
+		var tmp;			
+		if (!((key >= 0) && (key <= 0xffff)))
+		   return; //ignore	
+		 var value = obj[key];
+		if (value === null)
+		   return;		
+	 	if (Buffer.isBuffer(value)) {			 
+			tmp = (value.length > 0xffffff) ? 0xffffff : value.length; 
+			res += 6+tmp;
+		 } 
+		else if (typeof value === 'string') {
+			tmp = Buffer.byteLength(value);
+			if (tmp > 0xffffff)
+			     tmp = 0xffffff;			    			
+			res += 6+tmp;
+		}
+		else if (typeof value === 'object') {
+			tmp = getBufferFor(value);
+			if (tmp > 0)
+		       res += 6+tmp;
+		}
+		else if (typeof value === 'number') {
+			if ( Number.isInteger(value)) {
+				if ( (value >= 0) && (value <= 0xffffff) ) 
+			    	res += 6;
+				else
+				if ((value >= -2147483648) && (value <= 2147483647) ) 
+					res += 6+4;
+				else
+					res += 6+8;
+			} else
+			 res += 6+8;
+		}
+		else if (value === true) 
+				res += 6;
+		else if (value === false)
+				res += 6;				 
+	}
+	return res;
+}
+
+function objectToSDXF(obj, buff) {
+	var offset = 0, tmp;
+	Object.keys(obj).forEach(f);
+    function f(key) {
+		key = Number(key);
+		if (!(Number.isInteger(key) && (key >= 0) && (key <= 0xffff)))
+		   return; //ignore		 
+		var value = obj[key];
+		if (value === null)
+		  return;
+		if (value === true)
+		    value = 1;
+		else if (value === false)
+		    value = 0;  
+	 	if (Buffer.isBuffer(value)) {
+			tmp =  (value.length > 0xffffff) ? 0xffffff : value.length; 			
+			buff.writeUInt16LE(key,offset,2); offset+=2;
+			buff.writeUInt8((SDXF_TYPE_BIT_STRING<<5),offset ); offset+=1;
+			buff.writeUIntLE(tmp,offset,3); offset+=3
+			value.copy(buff,offset,0,tmp); offset+=tmp;			
+		 } 
+		else if (typeof value === 'string') {
+		//	res += 6+Buffer.byteLength(value);
+			buff.writeUInt16LE(key,offset,2); offset+=2;
+			buff.writeUInt8((SDXF_TYPE_UTF8<<5),offset ); offset+=1;
+			tmp = Buffer.byteLength(value);
+			if (tmp > 0xffffff)
+			     tmp = 0xffffff;			    						
+			buff.writeUIntLE(tmp, offset,3);offset+=3;			
+			buff.write(value,offset,tmp); offset+=tmp;			
+		}
+		else if (typeof value === 'object'){
+		     //res += 6+getBufferFor(value);
+			tmp = objectToSDXF(value, buff.slice(offset+6));
+			if (tmp > 0) {
+				buff.writeUInt16LE(key,offset,2); offset+=2;
+				buff.writeUInt8(SDXF_TYPE_STRUCTURE<<5, offset); offset+=1;
+				buff.writeIntLE(tmp,offset,3); offset+=3;
+				offset += tmp;
+			}			   			
+		}
+		else if (typeof value == 'number') {
+			buff.writeUInt16LE(key,offset,2); offset+=2;
+			if ( Number.isInteger(value)) {
+    							
+				if ( (value >= 0) && (value <= 0xffffff) ){
+				   buff.writeUInt8((SDXF_TYPE_NUMERIC<<5)|SDXF_FLAG_SHORTCHUNK,offset ); offset+=1;
+				   buff.writeUIntLE(value,offset,3); offset+=3;
+				} 			    	
+				else
+				if ((value >= -2147483648) && (value <= 2147483647) ) {
+					buff.writeUInt8(SDXF_TYPE_NUMERIC<<5,offset ); offset+=1;
+					buff.writeIntLE(4,offset,3); offset+=3;
+					buff.writeInt32LE(value,offset); offset+=4; 
+				}
+				else {
+					buff.writeUInt8(SDXF_TYPE_NUMERIC<<5,offset ); offset+=1;
+					buff.writeIntLE(8,offset,3); offset+=3;
+					buff.writeIntLE(value,offset,8); offset+=8; 					
+				}
+			} else {			
+					buff.writeUInt8(SDXF_TYPE_FLOAT<<5,offset ); offset+=1;
+					buff.writeIntLE(8,offset,3); offset+=3;
+					buff.writeDoubleLE(value,offset); offset+=8; 								 
+			}
+		};
+	}
+	return offset;	  
+} 
  
 module.exports.parseSDXF = parseSDXF;
 module.exports.Reader = Reader;
+module.exports.Writer = Writer;
