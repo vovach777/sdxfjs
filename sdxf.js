@@ -105,13 +105,10 @@ function Writer() {
 }
 
 Writer.prototype._transform = function (chunk, encoding, callback) {
-	//console.dir(chunk);
 	var data = new Buffer( getBufferFor(chunk) );
 	if (data.length > 0) {
 		objectToSDXF(chunk, data);
 		callback(null,data);	 
-		// this.push(data);
-		// if (callback)
 	}
 }
 
