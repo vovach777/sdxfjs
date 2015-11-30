@@ -14,22 +14,22 @@ var  SDXF_TYPE_UTF8       = 6; // 6 -- UTF-8
 var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
 
 
- function Reader() {
+ function Parser() {
 	 this.buff = new Buffer(0);
 	 this.objects = [];
  }
  
- Reader.prototype.sync = function() {
+ Parser.prototype.sync = function() {
 	 this.buff = new Buffer(0);
- }
+ };
  
- Reader.prototype.flush = function() {
+ Parser.prototype.flush = function() {
 	 this.buff = new Buffer(0);
 	 this.objects = [];
- }
+ };
  
  
- Reader.prototype.append = function(data) {
+ Parser.prototype.append = function(data) {
 	 this.buff = Buffer.concat([this.buff,data]);
 	 var offset = 0;
 	while (this.buff.length >= 6) {
@@ -98,19 +98,21 @@ function parseSDXF(buff) {
 }
 
 var Transform = require('stream').Transform;
-require("util").inherits(Writer, Transform);
+require("util").inherits(Serialize, Transform);
+require("util").inherits(Deserialize, Transform);
 
-function Writer() {
+
+function Serialize() {
 	Transform.call(this,{ objectMode: true, decodeStrings: false });
 }
 
-Writer.prototype._transform = function (chunk, encoding, callback) {
+Serialize.prototype._transform = function (chunk, encoding, callback) {
 	var data = new Buffer( getBufferFor(chunk) );
 	if (data.length > 0) {
 		objectToSDXF(chunk, data);
 		callback(null,data);	 
 	}
-}
+};
 
 function getBufferFor(obj) {
 	var res=0;
@@ -175,7 +177,7 @@ function objectToSDXF(obj, buff) {
 			tmp =  (value.length > 0xffffff) ? 0xffffff : value.length; 			
 			buff.writeUInt16LE(key,offset,2); offset+=2;
 			buff.writeUInt8((SDXF_TYPE_BIT_STRING<<5),offset ); offset+=1;
-			buff.writeUIntLE(tmp,offset,3); offset+=3
+			buff.writeUIntLE(tmp,offset,3); offset+=3;
 			value.copy(buff,offset,0,tmp); offset+=tmp;			
 		 } 
 		else if (typeof value === 'string') {
@@ -222,11 +224,26 @@ function objectToSDXF(obj, buff) {
 					buff.writeIntLE(8,offset,3); offset+=3;
 					buff.writeDoubleLE(value,offset); offset+=8; 								 
 			}
-		};
+		}
 	}
 	return offset;	  
-} 
- 
-module.exports.parseSDXF = parseSDXF;
-module.exports.Reader = Reader;
-module.exports.Writer = Writer;
+}
+
+
+function Deserialize() {
+	Transform.call(this,{ objectMode: true, decodeStrings: false });
+	this.parser = new Parser();
+}
+
+Deserialize.prototype._transform = function (chunk, encoding, callback) {
+	this.parser.append(chunk);
+	var data;
+	while (data=this.parser.objects.shift(), data) { 
+			callback(null,data);
+	}	
+};
+  
+//module.exports.parseSDXF = parseSDXF;
+module.exports.Parser = Parser;
+module.exports.Serialize = Serialize;
+module.exports.Deserialize = Deserialize;

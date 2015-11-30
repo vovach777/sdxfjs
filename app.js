@@ -1,25 +1,12 @@
 var fs = require('fs');
 var SDXF = require('./sdxf');
 
-var sample1 = fs.readFileSync('sample4.sdxf');
-var opt = {};
-var res = new SDXF.Reader();
-    res.append( sample1 );
-	
+var sample4 = fs.createReadStream('sample5.sdxf');
+var deserialize = new SDXF.Deserialize();
+var serialize   = new SDXF.Serialize();
+var out   = new fs.createWriteStream('sample5.out.sdxf');
 
-var wrt = new SDXF.Writer();
-wrt.write(res.objects[0]);
-wrt.end();
-
-var rd = new SDXF.Reader();
-
-wrt.on('data', function(chunk){
-    rd.append( chunk );
-});
-
-wrt.on('end', function() {
-   if (JSON.stringify(rd.objects, null,4)===JSON.stringify(res.objects, null,4))
-      console.log('passed');    
-    else
-      console.log('fail');
+sample4.pipe(deserialize).pipe(serialize).pipe(out);
+deserialize.on('data', function(chunk) {
+      console.dir( chunk, { depth : null, colors : true} );
 });
