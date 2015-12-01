@@ -14,7 +14,8 @@ var  SDXF_TYPE_UTF8       = 6; // 6 -- UTF-8
 var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
 
 
- function Parser() {
+ function Parser($) {
+	 this.$ = $;
 	 this.buff = new Buffer(0);
 	 this.objects = [];
  }
@@ -43,7 +44,7 @@ var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
 		
 		if (type === SDXF_TYPE_STRUCTURE) {
 			 this.objects.push(
-				 parseSDXF(this.buff.slice(0,6+length))
+				 parseSDXF(this.buff.slice(0,6+length),this.$)
 			 );  
 		}
 	    this.buff=this.buff.slice(6+length);		 	
@@ -51,12 +52,15 @@ var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
 	return this;	 
  };
  
-function parseSDXF(buff) {	
+function parseSDXF(buff,$) {	
 	var res = {};
-	var offset = 0;	
+	var offset = 0;
+	if ($) index($);	
 	try{		 
 		while (buff.length-offset >= 6)  {
 			var chunkID =  buff.readUInt16LE(offset);
+			if ($ && $.$ && $.$.hasOwnProperty(chunkID))
+			 	chunkID = $.$[chunkID]; 			
 			offset +=2;
 			var flag = buff.readUInt8(offset);
 			offset +=1;
@@ -73,7 +77,7 @@ function parseSDXF(buff) {
 			value = content;														   				
 			switch (type) {
 				case SDXF_TYPE_STRUCTURE:
-						value = content ? parseSDXF( content ) : {};
+						value = content ? parseSDXF( content,$ ) : {};
 						break;
 				case SDXF_TYPE_UTF8:
 						value = content ? content.toString() : ''; 
@@ -87,7 +91,7 @@ function parseSDXF(buff) {
 				case SDXF_TYPE_BIT_STRING:
 						value = content;			  
 						break;
-			}	
+			}
 			res[chunkID] = value;
 		}		
 	}
@@ -102,27 +106,31 @@ require("util").inherits(Serialize, Transform);
 require("util").inherits(Deserialize, Transform);
 
 
-function Serialize() {
+function Serialize($) {
+	this.$ = $;
 	Transform.call(this,{ objectMode: true, decodeStrings: false });
 }
 
 Serialize.prototype._transform = function (chunk, encoding, callback) {
-	var data = new Buffer( getBufferFor(chunk) );
+	var data = new Buffer( getBufferFor(chunk, this.$) );
 	if (data.length > 0) {
-		objectToSDXF(chunk, data);
+		objectToSDXF(chunk, data, this.$);
 		callback(null,data);	 
 	}
 };
 
-function getBufferFor(obj) {
+function getBufferFor(obj,$) {
 	var res=0;
 	Object.keys(obj).forEach(f);
     function f(key) {
-		var tmp;			
-		if (!((key >= 0) && (key <= 0xffff)))
+		var tmp, value = obj[key];
+		if ($ && $.hasOwnProperty(key)) {
+			key = $[key];//map key 
+		} else {
+		if (!(Number.isInteger(key) && (key >= 0) && (key <= 0xffff)))
 		   return; //ignore	
-		 var value = obj[key];
-		if (value === null)
+		}
+		if (value == null)
 		   return;		
 	 	if (Buffer.isBuffer(value)) {			 
 			tmp = (value.length > 0xffffff) ? 0xffffff : value.length; 
@@ -135,7 +143,7 @@ function getBufferFor(obj) {
 			res += 6+tmp;
 		}
 		else if (typeof value === 'object') {
-			tmp = getBufferFor(value);
+			tmp = getBufferFor(value,$);
 			if (tmp > 0)
 		       res += 6+tmp;
 		}
@@ -159,15 +167,19 @@ function getBufferFor(obj) {
 	return res;
 }
 
-function objectToSDXF(obj, buff) {
+function objectToSDXF(obj,buff,$) {
 	var offset = 0, tmp;
 	Object.keys(obj).forEach(f);
     function f(key) {
-		key = Number(key);
-		if (!(Number.isInteger(key) && (key >= 0) && (key <= 0xffff)))
-		   return; //ignore		 
 		var value = obj[key];
-		if (value === null)
+		if ($ && $.hasOwnProperty(key)) {
+			key = $[key];//map key 
+		} else {		
+			key = Number(key);
+			if (!(Number.isInteger(key) && (key >= 0) && (key <= 0xffff)))
+				return; //ignore
+		}
+		if (value == null)
 		  return;
 		if (value === true)
 		    value = 1;
@@ -192,7 +204,7 @@ function objectToSDXF(obj, buff) {
 		}
 		else if (typeof value === 'object'){
 		     //res += 6+getBufferFor(value);
-			tmp = objectToSDXF(value, buff.slice(offset+6));
+			tmp = objectToSDXF(value, buff.slice(offset+6),$);
 			if (tmp > 0) {
 				buff.writeUInt16LE(key,offset,2); offset+=2;
 				buff.writeUInt8(SDXF_TYPE_STRUCTURE<<5, offset); offset+=1;
@@ -229,10 +241,9 @@ function objectToSDXF(obj, buff) {
 	return offset;	  
 }
 
-
-function Deserialize() {
+function Deserialize($) {
 	Transform.call(this,{ objectMode: true, decodeStrings: false });
-	this.parser = new Parser();
+	this.parser = new Parser($);
 }
 
 Deserialize.prototype._transform = function (chunk, encoding, callback) {
@@ -243,7 +254,20 @@ Deserialize.prototype._transform = function (chunk, encoding, callback) {
 	}	
 };
   
+function index($) {
+  if ($ && !$.hasOwnProperty('$')) {
+	$.$={};  
+    Object.keys($).forEach(_get_index);    
+  }
+  return $;
+  
+  function _get_index(key) {
+    $.$[$[key]] = key;
+  }  
+}
+  
 //module.exports.parseSDXF = parseSDXF;
 module.exports.Parser = Parser;
 module.exports.Serialize = Serialize;
 module.exports.Deserialize = Deserialize;
+module.exports.index = index;
