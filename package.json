@@ -1,0 +1,76 @@
+{
+  "_args": [
+    [
+      "sdxfjs",
+      "C:\\NodeProjects\\autoobject"
+    ]
+  ],
+  "_from": "sdxfjs@*",
+  "_id": "sdxfjs@0.1.0",
+  "_inCache": true,
+  "_installable": true,
+  "_location": "/sdxfjs",
+  "_nodeVersion": "5.1.0",
+  "_npmUser": {
+    "email": "vovach777@gmail.com",
+    "name": "vovach777"
+  },
+  "_npmVersion": "3.3.12",
+  "_phantomChildren": {},
+  "_requested": {
+    "name": "sdxfjs",
+    "raw": "sdxfjs",
+    "rawSpec": "",
+    "scope": null,
+    "spec": "*",
+    "type": "range"
+  },
+  "_requiredBy": [
+    "#USER"
+  ],
+  "_shasum": "cf29b2edc0aa980e593d76a8911c02d8119d8c02",
+  "_shrinkwrap": null,
+  "_spec": "sdxfjs",
+  "_where": "C:\\NodeProjects\\autoobject",
+  "author": {
+    "name": "vovach777"
+  },
+  "bugs": {
+    "url": "https://github.com/vovach777/sdxfjs/issues"
+  },
+  "dependencies": {},
+  "description": "Structured Data Exchange Format (SDXF)",
+  "devDependencies": {},
+  "directories": {},
+  "dist": {
+    "shasum": "cf29b2edc0aa980e593d76a8911c02d8119d8c02",
+    "tarball": "http://registry.npmjs.org/sdxfjs/-/sdxfjs-0.1.0.tgz"
+  },
+  "gitHead": "664f641253094288392a160f246e26255dd91b04",
+  "homepage": "https://github.com/vovach777/sdxfjs#readme",
+  "keywords": [
+    "Binary",
+    "Deserialization",
+    "SDXF",
+    "Serialization"
+  ],
+  "license": "ISC",
+  "main": "sdxf.js",
+  "maintainers": [
+    {
+      "name": "vovach777",
+      "email": "vovach777@gmail.com"
+    }
+  ],
+  "name": "sdxfjs",
+  "optionalDependencies": {},
+  "readme": "ERROR: No README data found!",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vovach777/sdxfjs.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "version": "0.2.1"
+}

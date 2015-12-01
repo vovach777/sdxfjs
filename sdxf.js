@@ -249,9 +249,10 @@ function Deserialize($) {
 Deserialize.prototype._transform = function (chunk, encoding, callback) {
 	this.parser.append(chunk);
 	var data;
-	while (data=this.parser.objects.shift(), data) { 
-			callback(null,data);
-	}	
+	while (data=this.parser.objects.shift(), data) {
+		this.push(data);  	 
+	}
+	callback();	
 };
   
 function index($) {
