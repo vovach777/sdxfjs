@@ -30,6 +30,16 @@ var  SDXF_TYPE_RESERVED   = 7; // 7 -- reserved
  };
  
  
+ function s4( num ) {	 
+	 return ('0000000' +(num||0).toString(16)).slice(-8);
+ }
+ function s6( num ) {	 
+	 return ('00000000000' +(num||0).toString(16)).slice(-12);
+ }
+function s2( num ) {
+	 return ('000' + (num||0).toString(16)).slice(-4);
+ }
+  
  Parser.prototype.append = function(data) {
 	 this.buff = Buffer.concat([this.buff,data]);
 	 var offset = 0;
@@ -80,7 +90,22 @@ function parseSDXF(buff,$) {
 						value = content ? parseSDXF( content,$ ) : {};
 						break;
 				case SDXF_TYPE_UTF8:
-						value = content ? content.toString() : ''; 
+						if (content) {
+							if (flag & SDXF_FLAG_COMPRESSED) {
+								value = '{'+	
+										s4(content.readUInt32LE(0,true))+'-'+ //D1
+										s2(content.readUInt16LE(4,true))+'-'+ //D2
+										s2(content.readUInt16LE(6,true))+'-'+ //D3
+										s2(content.readUInt16LE(8,true))+'-'+ //D4:2
+										s6(content.readUIntBE(10,6,true))+ //D4:6
+										'}';
+							}
+							else
+							  value = content.toString();
+						}
+						else 
+						  value = '';				
+						//value = content ? content.toString() : ''; 
 						break;
 				case SDXF_TYPE_FLOAT:
 						value = content ? content.readDoubleLE(0) : NaN;
@@ -102,8 +127,11 @@ function parseSDXF(buff,$) {
 }
 
 var Transform = require('stream').Transform;
-require("util").inherits(Serialize, Transform);
-require("util").inherits(Deserialize, Transform);
+var Writable  = require('stream').Writable;
+var inherits  = require("util").inherits;
+inherits(Serialize, Transform);
+inherits(Deserialize, Transform);
+inherits(LogObject, Writable);
 
 
 function Serialize($) {
@@ -266,9 +294,22 @@ function index($) {
     $.$[$[key]] = key;
   }  
 }
-  
+
+function LogObject(stream, colors) {
+      this.console = new console.Console(stream);
+      this.colors = colors||false;
+      Writable.call(this,{ objectMode: true, decodeStrings: false });      
+} 
+LogObject.prototype._write = function (chunk, encoding, callback) {
+   this.console.dir( chunk, { depth : null, colors : this.colors} );
+   callback();   
+};
+
+var LogStream = new LogObject(process.stdout, true); 
+
 //module.exports.parseSDXF = parseSDXF;
 module.exports.Parser = Parser;
 module.exports.Serialize = Serialize;
 module.exports.Deserialize = Deserialize;
 module.exports.index = index;
+module.exports.LogStream = LogStream;
