@@ -105,7 +105,6 @@ function parseSDXF(buff,$) {
 						}
 						else 
 						  value = '';				
-						//value = content ? content.toString() : ''; 
 						break;
 				case SDXF_TYPE_FLOAT:
 						value = content ? content.readDoubleLE(0) : NaN;
@@ -117,7 +116,14 @@ function parseSDXF(buff,$) {
 						value = content;			  
 						break;
 			}
-			res[chunkID] = value;
+			if (res.hasOwnProperty(chunkID)) {
+				if (Array.isArray(res[chunkID])) {
+					res[chunkID].push(value); 
+				} else {
+					res[chunkID] = [res[chunkID],value];
+				}				
+			} else
+			  res[chunkID] = value;  					
 		}		
 	}
 	catch(e) {
@@ -149,15 +155,20 @@ Serialize.prototype._transform = function (chunk, encoding, callback) {
 
 function getBufferFor(obj,$) {
 	var res=0;
-	Object.keys(obj).forEach(f);
-    function f(key) {
-		var tmp, value = obj[key];
+	Object.keys(obj).forEach(_k);
+	function _k(key) {
+		var	value = obj[key];
 		if ($ && $.hasOwnProperty(key)) {
 			key = $[key];//map key 
 		} else {
-		if (!(Number.isInteger(key) && (key >= 0) && (key <= 0xffff)))
-		   return; //ignore	
+			key = Number(key);
+			if (!(Number.isInteger(key) && (key >= 0) && (key <= 0xffff)))
+			return; //ignore	
 		}
+		kv(key,value);		
+	}
+    function kv(key,value) {
+		var tmp
 		if (value == null)
 		   return;		
 	 	if (Buffer.isBuffer(value)) {			 
@@ -171,9 +182,15 @@ function getBufferFor(obj,$) {
 			res += 6+tmp;
 		}
 		else if (typeof value === 'object') {
+			if (Array.isArray(value)) {
+			    value.forEach(function(element) {
+					kv(key, element);
+				});  	
+			} else {
 			tmp = getBufferFor(value,$);
 			if (tmp > 0)
 		       res += 6+tmp;
+			}
 		}
 		else if (typeof value === 'number') {
 			if ( Number.isInteger(value)) {
@@ -195,10 +212,13 @@ function getBufferFor(obj,$) {
 	return res;
 }
 
+
 function objectToSDXF(obj,buff,$) {
 	var offset = 0, tmp;
-	Object.keys(obj).forEach(f);
-    function f(key) {
+	
+    Object.keys(obj).forEach(_k);
+	
+	function _k(key) {
 		var value = obj[key];
 		if ($ && $.hasOwnProperty(key)) {
 			key = $[key];//map key 
@@ -206,7 +226,12 @@ function objectToSDXF(obj,buff,$) {
 			key = Number(key);
 			if (!(Number.isInteger(key) && (key >= 0) && (key <= 0xffff)))
 				return; //ignore
-		}
+		}		
+		_kv(key,value);
+	}
+	
+    function _kv(key,value) {
+		
 		if (value == null)
 		  return;
 		if (value === true)
@@ -231,14 +256,18 @@ function objectToSDXF(obj,buff,$) {
 			buff.write(value,offset,tmp); offset+=tmp;			
 		}
 		else if (typeof value === 'object'){
-		     //res += 6+getBufferFor(value);
-			tmp = objectToSDXF(value, buff.slice(offset+6),$);
-			if (tmp > 0) {
-				buff.writeUInt16LE(key,offset,2); offset+=2;
-				buff.writeUInt8(SDXF_TYPE_STRUCTURE<<5, offset); offset+=1;
-				buff.writeIntLE(tmp,offset,3); offset+=3;
-				offset += tmp;
-			}			   			
+			if (Array.isArray(value)) {
+				value.forEach(function(element) {
+				    _kv(key, element);	
+				});				
+			} else {
+				tmp = objectToSDXF(value, buff.slice(offset+6),$);
+				if (tmp > 0) {
+					buff.writeUInt16LE(key,offset,2); offset+=2;
+					buff.writeUInt8(SDXF_TYPE_STRUCTURE<<5, offset); offset+=1;
+					buff.writeIntLE(tmp,offset,3); offset+=3;
+					offset += tmp;
+			}}
 		}
 		else if (typeof value == 'number') {
 			buff.writeUInt16LE(key,offset,2); offset+=2;
