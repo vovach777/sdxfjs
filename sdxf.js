@@ -137,20 +137,40 @@ var Writable  = require('stream').Writable;
 var inherits  = require("util").inherits;
 inherits(Serialize, Transform);
 inherits(Deserialize, Transform);
+inherits(ObjectMap, Transform);
 inherits(LogObject, Writable);
 
+function ObjectMap( mapFunction ) {
+    this.mapFunction = mapFunction || function(o) { return o };
+    Transform.call(this,{ objectMode: true, decodeStrings: false });    
+}
 
-function Serialize($) {
+ObjectMap.prototype._transform = function (chunk, encoding, callback) {
+    chunk = this.mapFunction(chunk);
+    if (chunk) {
+        this.push(chunk);
+    }
+    callback();  
+}
+
+function Serialize($,rootID) {
 	this.$ = $;
+    this.rootID = rootID;
 	Transform.call(this,{ objectMode: true, decodeStrings: false });
 }
 
 Serialize.prototype._transform = function (chunk, encoding, callback) {
+    if (this.rootID != undefined) {
+        var tmp = {};
+        tmp[this.rootID] = chunk;
+        chunk = tmp;
+    }    
 	var data = new Buffer( getBufferFor(chunk, this.$) );
 	if (data.length > 0) {
 		objectToSDXF(chunk, data, this.$);
-		callback(null,data);	 
+		this.push(data);			 
 	}
+	callback();
 };
 
 function getBufferFor(obj,$) {
@@ -342,3 +362,4 @@ module.exports.Serialize = Serialize;
 module.exports.Deserialize = Deserialize;
 module.exports.index = index;
 module.exports.LogStream = LogStream;
+module.exports.ObjectMap = ObjectMap;
